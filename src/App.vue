@@ -14,10 +14,11 @@
                 <form>
                   <div class="form row">
                     <div class="col-10">
-                      <input v-model="newTask" type="text" id="inputTask" class="form-control" placeholder="Enter Task">
+                      <input v-model="newTask" type="text" class="form-control" placeholder="Enter Task">
                     </div>
 
                     <div class="col">
+                      <!-- <button class="btn btn-success" @click="handleClickSignIn">Login</button> -->
                       <button class="btn btn-primary" @click="onAddTask">Add</button>
                     </div>
                   </div>
@@ -26,6 +27,8 @@
                 <table class="table">
                   <thead>
                     <tr>
+
+                      <th scope="col">#</th>
                       <th scope="col">ชื่อรายการ</th>
                       <th scope="col">แก้ไข</th>
                     </tr>
@@ -33,7 +36,14 @@
 
                   <tbody v-for="(task, index) in tasks" :key="index">
                     <tr>
-                      <td class="name" scope="row">{{ task.title }}</td>
+                      <td>
+                        <input v-if="!task.done" type="checkbox" @click="onDoneTask(task._id, task.done)">
+                        <input v-if="task.done" type="checkbox" @click="onDoneTask(task._id, task.done)" checked>
+                      </td>
+                      <td v-if="!task.done" scope="row">{{ task.title }}</td>
+                      <td v-else scope="row">
+                        <s>{{ task.title }}</s>
+                      </td>
                       <td class="edit">
                         <button class="btn btn-warning" @click="onUpdateTask(task._id)">
                           <!-- <a :href="`/admin/product/${product._id}`"> แก้ไข</a> -->
@@ -65,10 +75,38 @@ export default {
   data() {
     return {
       tasks: [],
-      newTask: ""
+      newTask: "",
+      isInit: false,
+      isSignIn: false
     }
   },
   methods: {
+    async Login() {
+      const googleUser = await this.$gAuth.signIn()
+      this.isSignIn = this.$gAuth.isAuthorized
+      console.log(googleUser);
+
+    },
+    handleClickSignIn() {
+      this.$gAuth
+        .signIn()
+        .then(GoogleUser => {
+          //on success do something
+          console.log("GoogleUser", GoogleUser);
+          console.log("getId", GoogleUser.getId());
+          console.log("getBasicProfile", GoogleUser.getBasicProfile());
+          console.log("getAuthResponse", GoogleUser.getAuthResponse());
+          console.log(
+            "getAuthResponse",
+            this.$gAuth.GoogleAuth.currentUser.get().getAuthResponse()
+          );
+          this.isSignIn = this.$gAuth.isAuthorized;
+        })
+        .catch(error => {
+          //on fail do something
+          console.log(error);
+        });
+    },
     async getAllTask() {
       const response = await axios.get("https://goldfish-app-nvlse.ondigitalocean.app/tasks")
       // console.log(response);
@@ -84,6 +122,10 @@ export default {
       this.getAllTask()
       this.newTask = ""
 
+    },
+    async onDoneTask(id, done) {
+      await axios.patch(`https://goldfish-app-nvlse.ondigitalocean.app/tasks/${id}`, { done: !done })
+      this.getAllTask()
     },
     async onUpdateTask(id) {
       try {
@@ -155,11 +197,14 @@ export default {
   },
   mounted() {
     this.getAllTask()
-    // this.$watch('tasks', this.taskUpdated, {
-    //   deep: true
-    // })
   },
   created() {
+    let that = this;
+    let checkGauthLoad = setInterval(function () {
+      that.isInit = that.$gAuth.isInit;
+      that.isSignIn = that.$gAuth.isAuthorized;
+      if (that.isInit) clearInterval(checkGauthLoad);
+    }, 1000);
 
   },
 }
